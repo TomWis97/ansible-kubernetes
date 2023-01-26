@@ -1,0 +1,27 @@
+---
+- name: System preparations
+  include_tasks:
+    file: preparations.yaml
+    apply:
+      tags:
+      - preparations
+  tags:
+  - always
+
+- name: Container Runtime Interface
+  include_tasks:
+    file: crio.yaml
+    apply:
+      tags:
+      - crio
+  tags:
+  - always
+
+- name: Kubernetes
+  include_tasks:
+    file: kubernetes.yaml
+    apply:
+      tags:
+      - kubernetes-prep
+  tags:
+  - always

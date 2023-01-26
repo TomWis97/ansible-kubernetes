@@ -1,0 +1,94 @@
+---
+- name: ArgoCD | Create namespace
+  kubernetes.core.k8s:
+    name: argocd
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: ArgoCD | Fetch ArgoCD objects
+  ansible.builtin.uri:
+    url: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    return_content: yes
+  register: argocd_objects
+
+- name: ArgoCD | Create ArgoCD objects
+  ansible.builtin.k8s:
+    namespace: argocd
+    resource_definition: "{{ argocd_objects.content }}"
+
+- name: ArgoCD | Get latest version
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/argoproj/argo-cd/releases
+    return_content: yes
+  register: latest_argocd_version
+
+- name: ArgoCD | Install ArgoCD CLI
+  vars:
+    argocd_arch_lookup:
+      aarch64: arm64
+      armv6l: arm
+      x86_64: amd64
+  ansible.builtin.get_url:
+    url: https://github.com/argoproj/argo-cd/releases/download/{{ latest_argocd_version.json[0].tag_name }}/argocd-linux-{{ argocd_arch_lookup[ansible_architecture] }}
+    dest: /usr/local/bin/argocd
+    mode: '0555'
+    owner: root
+    group: root
+
+- name: ArgoCD | Create NodePort service
+  ansible.builtin.k8s:
+    namespace: argocd
+    resource_definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        labels:
+          app.kubernetes.io/component: server
+          app.kubernetes.io/name: argocd-server
+          app.kubernetes.io/part-of: argocd
+        name: argocd-server-nodeport
+      spec:
+        ipFamilyPolicy: SingleStack
+        ports:
+        - name: https
+          port: 443
+          protocol: TCP
+          targetPort: 8080
+        selector:
+          app.kubernetes.io/name: argocd-server
+        sessionAffinity: None
+        type: NodePort
+      status:
+        loadBalancer: {}
+
+- name: ArgoCD | Get external port
+  ansible.builtin.k8s_info:
+    api_version: v1
+    kind: Service
+    namespace: argocd
+    name: argocd-server-nodeport
+  register: argocd_external_port_raw
+
+- name: ArgoCD | Get external port
+  ansible.builtin.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: argocd
+    name: argocd-initial-admin-secret
+  register: argocd_initial_password_raw
+
+- name: ArgoCD | Extract password and port
+  set_fact:
+    argocd_external_port: "{{ argocd_external_port_raw.resources[0].spec.ports[0].nodePort }}"
+    argocd_initial_password: "{{ argocd_initial_password_raw.resources[0].data.password | b64decode }}"
+
+- debug:
+    var: argocd_external_port
+- debug:
+    var: argocd_initial_password
+- name: ArgoCD | Login
+  command: /usr/local/bin/argocd login localhost:{{ argocd_external_port }} --insecure --password="{{ argocd_initial_password }}" --username="admin"
+  args:
+    creates: "{{ ansible_user_dir }}/.config/argocd/config"
+  

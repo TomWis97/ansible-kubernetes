@@ -1,0 +1,18 @@
+---
+- name: ArgoCD
+  include_tasks:
+    file: argocd.yaml
+    apply:
+      tags:
+      - argocd
+  tags:
+  - always
+
+- name: Nginx
+  include_tasks:
+    file: nginx.yaml
+    apply:
+      tags:
+      - nginx
+  tags:
+  - always

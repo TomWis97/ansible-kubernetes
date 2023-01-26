@@ -1,0 +1,53 @@
+---
+- name: Kubernetes | Set latest version
+  when: kubernetes_version == 'latest'
+  block:
+  - name: Kubernetes | Get latest version
+    ansible.builtin.uri:
+      url: https://api.github.com/repos/kubernetes/kubernetes/releases
+      return_content: yes
+    register: kubernetes_latest_release_response
+  - name: Kubernetes | Set latest version variable
+    set_fact:
+      kubernetes_version: "{{ kubernetes_latest_release_response.json[0].tag_name[1:] }}"
+  - name: Kubernetes | Display version
+    ansible.builtin.debug:
+      msg: "Discovered Kubernetes version: {{ kubernetes_version }}"
+      verbosity: 1
+
+- name: Kubernetes | Configure repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    mode: '0644'
+    content: |
+      deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main
+
+- name: Kubernetes | Fetch keyfiles
+  ansible.builtin.uri:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    return_content: yes
+  register: kubernetes_keyfiles
+
+- name: Kubernetes | Store keyfiles
+  ansible.builtin.copy:
+    dest: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+    mode: '0644'
+    content: "{{ kubernetes_keyfiles.content }}"
+
+- name: Kubernetes | Install packages
+  ansible.builtin.apt:
+    state: present
+    update_cache: yes
+    name:
+    - "kubelet={{ kubernetes_version }}-00"
+    - "kubeadm={{ kubernetes_version }}-00"
+    - "kubectl={{ kubernetes_version }}-00"
+
+- name: Kubernetes | Hold packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+  - kubelet
+  - kubeadm
+  - kubectl

@@ -1,0 +1,12 @@
+---
+- hosts: kubernetes
+  roles:
+  - kubernetes-preparation
+
+- hosts: control_plane
+  roles:
+  - kubernetes-setup
+
+- hosts: control_plane[0]
+  roles:
+  - addons

@@ -1,0 +1,42 @@
+---
+- name: Cilium | Get system architecture
+  vars:
+    cilium_arch_lookup:
+      aarch64: arm64
+      armv6l: arm
+      x86_64: amd64
+  ansible.builtin.set_fact:
+    cilium_install_architecture: "{{ cilium_arch_lookup[ansible_architecture] }}"
+
+- name: Cilium | Get latest version
+  when: cilium_version == 'latest'
+  block:
+  - name: Cilium | Discover latest version
+    ansible.builtin.uri:
+      url: https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt
+      return_content: yes
+    register: latest_cilium_version
+
+  - name: Cilium | Set latest version
+    ansible.builtin.set_fact:
+      cilium_version: "{{ latest_cilium_version.content.strip() }}"
+
+  - name: Cilium | Show discovered version
+    ansible.builtin.debug:
+      msg: "Discovered Cilium version: {{ cilium_version }}"
+      verbosity: 1
+
+- name: Cilium | Install Cilium CLI
+  ansible.builtin.unarchive:
+    src: https://github.com/cilium/cilium-cli/releases/download/{{ cilium_version }}/cilium-linux-{{ cilium_install_architecture }}.tar.gz
+    dest: /usr/local/bin
+    remote_src: yes
+
+- name: Cilium | Install Cilium CNI
+  ansible.builtin.command: /usr/local/bin/cilium install
+  args:
+    creates: /etc/cni/net.d/05-cilium.conf
+
+- name: Cilium | Wait untill install is complete
+  ansible.builtin.command: /usr/local/bin/cilium status --wait
+  changed_when: no

@@ -1,0 +1,10 @@
+---
+crio_os_map:
+  Debian:
+    '11': Debian_11
+    '10': Debian_10
+crio_repositories:
+- path: /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+  content: deb [signed-by=/etc/apt/keyrings/libcontainers-archive-keyring.asc] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ crio_install_os }}/ /
+- path: /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:{{ crio_version }}.list
+  content: deb [signed-by=/etc/apt/keyrings/libcontainers-crio-archive-keyring.asc] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/{{ crio_version }}/{{ crio_install_os }}/ /

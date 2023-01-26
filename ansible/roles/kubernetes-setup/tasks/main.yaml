@@ -1,0 +1,38 @@
+---
+- name: Initialize cluster
+  command: >
+    /usr/bin/kubeadm
+    init
+    --node-name={{ inventory_hostname | lower }}
+    --control-plane-endpoint={{ ansible_fqdn | lower }}
+  args:
+    creates: /etc/kubernetes/controller-manager.conf
+  tags:
+  - kubernetes-setup
+
+- name: Create .kube directory for root
+  ansible.builtin.file:
+    state: directory
+    path: /root/.kube
+    mode: '0700'
+    owner: root
+  tags:
+  - kubernetes-setup
+
+- name: Copy admin kubeconfig
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    mode: '0600'
+    remote_src: yes
+  tags:
+  - kubernetes-setup
+
+- name: Install Cilium
+  include_tasks:
+    file: cilium.yaml 
+    apply:
+      tags:
+      - cilium
+  tags:
+  - always
