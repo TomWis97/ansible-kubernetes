@@ -1,0 +1,44 @@
+---
+- name: crio | Configure repositories
+  ansible.builtin.copy:
+    dest: "{{ item.path }}"
+    content: "{{ item.content }}"
+    mode: '0644'
+    owner: root
+  loop: "{{ crio_repositories_apt }}"
+
+- name: crio | Assure keyrings directory exists
+  ansible.builtin.file:
+    state: directory
+    path: /etc/apt/keyrings
+    mode: '0755'
+
+- name: crio | Fetch keyfiles
+  ansible.builtin.uri:
+    url: "{{ item }}"
+    return_content: yes
+  loop:
+  - https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ crio_install_os }}/Release.key
+  - https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/{{ crio_version }}/{{ crio_install_os }}/Release.key
+  register: crio_keyfiles
+
+- name: crio | Store keyfiles
+  vars:
+    keyfile_paths:
+    - /etc/apt/keyrings/libcontainers-archive-keyring.asc
+    - /etc/apt/keyrings/libcontainers-crio-archive-keyring.asc
+  ansible.builtin.copy:
+    dest: "{{ keyfile_paths[current_keyfile] }}"
+    mode: '0644'
+    content: "{{ item.content }}"
+  loop_control:
+    index_var: current_keyfile
+  loop: "{{ crio_keyfiles.results }}"
+
+- name: crio | Install CRI-O
+  ansible.builtin.apt:
+    state: present
+    update_cache: yes
+    name:
+    - cri-o
+    - cri-o-runc

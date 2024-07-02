@@ -30,11 +30,19 @@
   - name: net.ipv4.ip_forward
     value: 1
 
-- name: Preparations | Install generic packages
+- name: Preparations | Install generic packages (Apt)
   ansible.builtin.apt:
     name:
     - python3-pip
     state: present
+  when: ansible_pkg_mgr == "apt"
+
+- name: Preparations | Install generic packages (Yum)
+  ansible.builtin.yum:
+    name:
+    - python3-pip
+    state: present
+  when: ansible_pkg_mgr == "yum"
 
 - name: Preparations | Install PIP modules
   ansible.builtin.pip:

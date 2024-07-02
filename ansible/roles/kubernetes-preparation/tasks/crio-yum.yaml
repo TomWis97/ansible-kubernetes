@@ -1,8 +1,4 @@
 ---
-- name: crio | Set OS
-  ansible.builtin.set_fact:
-    crio_install_os: "{{ crio_os_map[ansible_distribution][ansible_distribution_major_version] }}"
-
 - name: crio | Set latest version
   when: crio_version == 'latest'
   block:
@@ -19,16 +15,18 @@
       msg: "Discovered CRIO version: {{ crio_version }}"
       verbosity: 1
 
-- name: crio | Install CRI-O (Apt)
-  ansible.builtin.include_tasks: crio-apt.yaml
-  when: ansible_pkg_mgr == "apt"
+- name: crio | Configure repositories
+  ansible.builtin.copy:
+    dest: "{{ item.path }}"
+    content: "{{ item.content }}"
+    mode: '0644'
+    owner: root
+  loop: "{{ crio_repositories_yum }}"
 
-- name: crio | Install CRI-O (Yum)
-  ansible.builtin.include_tasks: crio-yum.yaml
-  when: ansible_pkg_mgr == "yum"
-
-- name: crio | Enable CRI-O
-  ansible.builtin.service:
-    name: crio
-    state: started
-    enabled: yes
+- name: crio | Install CRI-O
+  ansible.builtin.apt:
+    state: present
+    update_cache: yes
+    name:
+    - cri-o
+    - container-selinux
